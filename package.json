@@ -1,0 +1,21 @@
+{
+  "name": "zpl-renderer-test",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.5.43",
+    "zpl-renderer-js": "^4.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.4",
+    "typescript": "~6.0.3",
+    "vite": "^6.4.4",
+    "vue-tsc": "^3.3.12"
+  }
+}
