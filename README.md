@@ -3,8 +3,9 @@
 Playground local, pequeno e didático, para testar a biblioteca **ZPL Renderer JS**
 ([`zpl-renderer-js`](https://github.com/Fabrizz/zpl-renderer-js)) com **Vue 3 + TypeScript + Vite**.
 
-Você escreve, ou gera a partir de dados Vue, uma string ZPL. A biblioteca transforma essa string
-em uma imagem PNG e o Vue mostra a etiqueta no navegador.
+Você escreve ou cola uma string ZPL em texto puro. A biblioteca transforma essa string em uma
+imagem PNG e o Vue mostra a etiqueta no navegador. Os campos de largura e altura permitem editar
+as dimensões em dots, atualizando os comandos `^PW` e `^LL` no próprio ZPL.
 
 > Não é um sistema de impressão: não conversa com impressoras e não tem backend nem banco de dados.
 > Tudo roda no navegador.
@@ -177,7 +178,7 @@ Um campo de texto típico combina quatro comandos:
 | `A` em `^FDLA,`       | Modo de entrada automático (a codificação dos dados é escolhida automaticamente)                                         |
 | texto após a vírgula  | O conteúdo do QR (`https://example.com`)                                                                                 |
 
-No exemplo com dados dinâmicos, o QR recebe o lote: `^FDLA,${fields.internalBatch}^FS`.
+No ZPL de exemplo, o QR Code contém `https://example.com`.
 
 ---
 
@@ -225,10 +226,8 @@ npm run preview   # serve o dist/ → http://localhost:4173
 3. Clique em **Renderizar ZPL** (ou use `Ctrl + Enter` no editor).
 4. **Veja o resultado** no preview. Abaixo dele aparecem o tamanho do PNG, os mm/dpmm enviados ao
    renderer, o tempo de renderização e um link **Baixar PNG**.
-5. **Altere os dados** em "Dados dinâmicos" (Descrição, Lote, Número, Cor, Width e Height).
-6. Clique em **Gerar ZPL pelos dados**. O editor recebe o ZPL gerado por `generateZpl()` e o preview é atualizado.
-7. **Compare o ZPL e o preview**: cada `^FD…^FS` vira um texto da etiqueta, `^PW`/`^LL` mudam o tamanho e
-   o QR Code contém o lote (aponte a câmera do celular para conferir).
+5. Edite **Largura (`^PW`)** e **Altura (`^LL`)** em dots; os comandos correspondentes são atualizados
+   no editor. O preview usa essas dimensões quando você renderiza o ZPL.
 
 Para ver o tratamento de erros:
 
@@ -237,7 +236,7 @@ Para ver o tratamento de erros:
 | **Limpar** e depois **Renderizar ZPL**             | `O ZPL está vazio…`                             |
 | Digite `hello world` e renderize                   | `No labels parsed` + dica sobre `^XA`/`^XZ`     |
 | Renderize `^XA^FO50,50^BQN,2,5^FD^FS^XZ`           | `Error rendering: … invalid qr barcode data`    |
-| No exemplo, troque `^PW600` por `^PW800`           | preview mais largo (800 × 300 px)               |
+| No exemplo, troque `^PW812` por `^PW800`           | preview mais largo (800 × 609 px)               |
 
 ---
 
@@ -257,7 +256,7 @@ zpl-renderer-test/
     ├── App.vue                  # título + <ZplPlayground />
     ├── style.css                # todo o CSS (puro)
     └── components/
-        └── ZplPlayground.vue    # toda a lógica: estado, generateZpl(), init, render, preview e erros
+        └── ZplPlayground.vue    # editor ZPL, dimensões, renderização, preview e erros
 ```
 
 Onde está cada etapa em `src/components/ZplPlayground.vue`:
@@ -265,7 +264,7 @@ Onde está cada etapa em `src/components/ZplPlayground.vue`:
 | Etapa                  | Código                                                                                  |
 | ---------------------- | --------------------------------------------------------------------------------------- |
 | A string ZPL           | `const zpl = ref(EXAMPLE_ZPL)` + `<textarea v-model="zpl">`                             |
-| Dados Vue → ZPL        | `generateZpl(fields)` e `generateFromFields()`                                          |
+| Dimensões em dots      | `widthDots` / `heightDots` atualizam `^PW` / `^LL` no texto                              |
 | Inicializar o renderer | `onMounted` → `await init({ wasmUrl })`                                                 |
 | ZPL → renderer         | `renderZpl()` → `await zplToBase64Async(zplCode, widthMm, heightMm, DPMM)`              |
 | Resultado → preview    | `` imageSrc.value = `data:image/png;base64,${base64Png}` `` + `<img :src="imageSrc">`   |
@@ -281,7 +280,7 @@ Onde está cada etapa em `src/components/ZplPlayground.vue`:
   imagem. Então `renderZpl()` lê `^PW` e `^LL` do próprio texto e converte: **mm = dots ÷ 8**.
   Resultado: **1 pixel por dot** (`^PW600 ^LL300` → PNG 600 × 300).
 - Se o ZPL não tiver `^PW`/`^LL`, vale o padrão da biblioteca (101,6 × 203,2 mm → PNG 813 × 1626 px).
-- O exemplo (600 × 300 dots) numa impressora de 203 dpi mede 75 × 37,5 mm.
+- O exemplo (812 × 609 dots) numa impressora de 203 dpi mede 101,5 × 76,125 mm.
 - A constante `DPMM = 8` fica no topo do componente. Ela não altera o desenho do preview (feito em dots);
   muda só os milímetros exibidos abaixo dele.
 
@@ -304,55 +303,11 @@ Onde está cada etapa em `src/components/ZplPlayground.vue`:
 
 ---
 
-## Adaptando para uma etiqueta real
+## Usar uma etiqueta real
 
-**Teste rápido:** cole o ZPL da sua etiqueta no editor e clique em **Renderizar ZPL**. Nenhum código precisa mudar.
-
-**Com os dados da aplicação:** substitua o corpo de `generateZpl()` em `src/components/ZplPlayground.vue`
-pela sua etiqueta, usando os campos de `LabelFields`:
-
-```ts
-function generateZpl(fields: LabelFields): string {
-  return `^XA
-~TA000
-~JSN
-^LT0
-^MNW
-^MTT
-^PON
-^PMN
-^LH0,0
-^JMA
-^PR2,2
-~SD22
-^JUS
-^LRN
-^CI28
-^PA0,1,1,0
-^MMT
-^PW1119
-^LL224
-...
-^FD${fields.descriptionFormula}^FS
-...
-^FD${fields.internalBatch}^FS
-...
-^FDCor: ${fields.colorInk}^FS
-...
-^XZ`;
-}
-```
-
-Os `...` representam os demais comandos da sua etiqueta (`^FT`/`^FO`, fontes, `^GFA` etc.).
-
-Como a etiqueta real tem tamanho fixo, simplifique também a chamada dentro de `generateFromFields()`:
-
-```ts
-zpl.value = generateZpl(fields.value);
-```
-
-Pronto: o botão **Gerar ZPL pelos dados** passa a gerar a etiqueta real, e o ZPL continua visível no editor.
-Os campos Width/Height podem ser removidos do template, se quiser.
+Cole o ZPL da etiqueta diretamente no editor e clique em **Renderizar ZPL**. Os campos de dimensão
+permitem alterar a largura (`^PW`) e a altura (`^LL`) em dots; a alteração também aparece no texto.
+Se esses comandos não existirem, editar as dimensões os insere após `^XA`.
 
 ### Cuidados (testados com este renderer)
 
@@ -363,10 +318,10 @@ Os campos Width/Height podem ser removidos do template, se quiser.
 2. **Não indente as linhas dentro da template string.** O renderer ignora quebras de linha e tabs, mas **não
    espaços**: os espaços da indentação viram parte do último parâmetro do comando anterior. Exemplo testado:
    `^BQN,2,5` seguido de uma linha indentada (`  ^FDLA,…`) faz o QR Code cair para ampliação 1 e ficar
-   minúsculo. Comece cada comando na coluna 0, como em `generateZpl()`.
+   minúsculo. Comece cada comando na coluna 0.
 3. **Nada de comentários dentro da template string.** Tudo entre as crases vai para o renderer (e para a
    impressora), inclusive `// comentários`.
-4. **`^` e `~` nos dados.** São caracteres de comando: um `^` dentro de `fields.descriptionFormula` corta o
+4. **`^` e `~` nos dados.** São caracteres de comando: um `^` dentro do conteúdo de um campo pode cortar o
    texto ali. Evite-os nos dados ou use `^FH` (ex.: `^FH^FD50_25^FS` → "50%"; `_5E` = `^`).
 5. **`^FT` não é `^FO`.** O ZPL exportado pelo ZebraDesigner costuma usar `^FT` (`y` = linha de base do texto).
    Ao trocar um pelo outro, ajuste o `y`.
